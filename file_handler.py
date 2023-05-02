@@ -10,23 +10,20 @@ class FileHandler:
         self.outputs = []
         self.internal = []
 
-        self.defs = []
+        self.defs = {}
 
-    def addInput(self, pos):
-        pos_string = str(pos.x) + '_' + str(pos.y) + '_' + str(pos.z)
+    def addInput(self, pos_string):
         self.inputs.append('i_' + pos_string)
 
-    def addOutput(self, pos):
-        pos_string = str(pos.x) + '_' + str(pos.y) + '_' + str(pos.z)
+    def addOutput(self, pos_string):
         self.outputs.append('o_' + pos_string)
 
-    def addDeclr(self, pos):
-        pos_string = str(pos.x) + '_' + str(pos.y) + '_' + str(pos.z)
+    def addDeclr(self, pos_string):
+        self.internal.append('p0_' + pos_string)
+        self.defs['p0_' + pos_string] = []
 
-        declr_string = 'p0_' + pos_string
-
-        if declr_string not in self.internal:
-            self.internal.append(declr_string)
+    def addDef(self, pos_string, line):
+        self.defs['p0_' + pos_string].append(line)
 
     def writeFile(self):
 
@@ -52,19 +49,32 @@ class FileHandler:
         handle.write(');\n\n')
 
         # Declare internal signals
-        handle.write('// Declare internal signals.\n')
+        handle.write('\t// Declare internal signals.\n')
         for line in self.internal:
-            handle.write('\tlogic ' + line + ';\n')
+            handle.write('\tlogic [1:0] ' + line + ';\n')
+        
+        handle.write('\n')
 
-        # Add definitions for internal signals
-        for line in self.defs:  # define signals
-            handle.write('\t' + line + ';\n')
+        # Assign internal signals
+        handle.write('\t// Assign internal signals.\n')
+        for line in self.defs:
+            handle.write('\tassign ' + line + ' = ')
+            if len(self.defs[line]) == 0:
+                handle.write("0")
+            for i, term in enumerate(self.defs[line]):
+                if i != 0: handle.write(' | ')
+                handle.write(term)
+            handle.write(';\n')
+
+        handle.write('\n')
+
+        # Assign outputs
+        handle.write('\t// Assign output signals.\n')
+        for line in self.outputs:
+            handle.write('\tassign ' + line + ' = |p0' + line[1:] + ';\n')
 
 
         handle.write('\nendmodule\n')  # End module definition
 
         handle.close()  # Write to output file and close
-
-
-
 

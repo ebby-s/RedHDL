@@ -4,25 +4,6 @@ from mcpi.minecraft import intFloor
 from mcpi.vec3 import Vec3
 
 
-# Examples of responses to block data requests.
-'''
-EnumProperty{name=face, clazz=class net.minecraft.world.level.block.state.properties.AttachFace, values=[FLOOR, WALL, CEILING]}=WALL
-EnumProperty{name=east, clazz=class net.minecraft.world.level.block.state.properties.RedstoneSide, values=[up, side, none]}=none
-EnumProperty{name=north, clazz=class net.minecraft.world.level.block.state.properties.RedstoneSide, values=[up, side, none]}=side
-EnumProperty{name=south, clazz=class net.minecraft.world.level.block.state.properties.RedstoneSide, values=[up, side, none]}=up
-EnumProperty{name=west, clazz=class net.minecraft.world.level.block.state.properties.RedstoneSide, values=[up, side, none]}=side
-
-DirectionProperty{name=facing, clazz=class net.minecraft.core.Direction, values=[north, south, west, east]}=east
-
-BooleanProperty{name=powered, clazz=class java.lang.Boolean, values=[true, false]}=false
-BooleanProperty{name=lit, clazz=class java.lang.Boolean, values=[true, false]}=false
-BooleanProperty{name=locked, clazz=class java.lang.Boolean, values=[true, false]}=false
-
-
-IntegerProperty{name=power, clazz=class java.lang.Integer, values=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]}=0
-IntegerProperty{name=delay, clazz=class java.lang.Integer, values=[1, 2, 3, 4]}=1
-'''
-
 
 def getAdjBlocks(pos):
     out = []
@@ -68,6 +49,8 @@ class WorldParser:
             # Store data in properties list
             self.rs_ppts[i][j][k] = [block_id, properties]
 
+            # print(block_id, properties, i, j, k)
+
             # Add location to rs lists.
             if 'LAMP' in block_id:
                 self.rs_outputs.append(Vec3(i,j,k))
@@ -102,7 +85,7 @@ class WorldParser:
                 for k in range(2*self.search_range):
 
                     # Get current block data.
-                    data = self.getBlockData(pos+Vec3(i,j,k))
+                    data = self.getBlockData(pos + Vec3(i,j,k))
 
                     # Split data into block ID and state.
                     split_idx = data.index(',')
@@ -111,9 +94,5 @@ class WorldParser:
 
                     # If block is relevant to redstone, parse further.
                     self.processBlock(pos,i,j,k, block_id, block_state_str)
-
-
-
-
 
 
