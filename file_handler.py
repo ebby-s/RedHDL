@@ -51,15 +51,16 @@ class FileHandler:
         # Declare internal signals
         handle.write('\t// Declare internal signals.\n')
         for line in self.internal:
-            handle.write('\tlogic [1:0] ' + line + ';\n')
-        
+            handle.write('\tlogic [2:0] ' + line + ';\n')
+
         handle.write('\n')
 
         # Assign internal signals
         handle.write('\t// Assign internal signals.\n')
         for line in self.defs:
             handle.write('\tassign ' + line + ' = ')
-            if len(self.defs[line]) == 0:
+
+            if len(self.defs[line]) == 0:                # Set to zero if not defined.
                 handle.write("0")
             for i, term in enumerate(self.defs[line]):
                 if i != 0: handle.write(' | ')

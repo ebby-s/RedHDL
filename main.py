@@ -34,7 +34,7 @@ parser.captureWorldState()
 
 
 
-
+# Register inputs, outputs and relevant blocks with file handler.
 for item in parser.rs_inputs:
     sv_out.addInput(vecToStr(item))
 
@@ -44,46 +44,56 @@ for item in parser.rs_outputs:
 for item in parser.rs_blocks:
     sv_out.addDeclr(vecToStr(Vec3(*item)))
 
-
+# Define signals related to inputs.
 for item in parser.rs_inputs:
 
-    sv_out.addDef(vecToStr(item), '(i_'+vecToStr(item)+'<<1)')
+    sv_out.addDef(vecToStr(item), '(i_'+vecToStr(item)+'<<2)')
 
     ppt = parser.rs_ppts[item.x][item.y][item.z][1]
 
     if ppt['face'] == 'CEILING':
-        sv_out.addDef(vecToStr(item+Vec3(0,1,0)), '(p0_'+vecToStr(item)+"&2'h2)")
+        sv_out.addDef(vecToStr(item+Vec3(0,1,0)), '(p0_'+vecToStr(item)+"&3'h4)")
     elif ppt['face'] == 'FLOOR':
-        sv_out.addDef(vecToStr(item+Vec3(0,-1,0)), '(p0_'+vecToStr(item)+"&2'h2)")
+        sv_out.addDef(vecToStr(item+Vec3(0,-1,0)), '(p0_'+vecToStr(item)+"&3'h4)")
     else:
-        sv_out.addDef(vecToStr(item+dirToVec(ppt['facing'])), '(p0_'+vecToStr(item)+"&2'h2)")
+        sv_out.addDef(vecToStr(item+dirToVec(ppt['facing'])), '(p0_'+vecToStr(item)+"&3'h4)")
 
-
+# Add definitons for Redstone blocks, torches and repeaters.
 for item in parser.rs_components:
 
     block_id = parser.rs_ppts[item.x][item.y][item.z][0]
     ppt = parser.rs_ppts[item.x][item.y][item.z][1]
 
     if block_id == 'REDSTONE_BLOCK':
-        sv_out.addDef(vecToStr(item), "2'h2")
+        sv_out.addDef(vecToStr(item), "3'h4")
 
     elif 'TORCH' in block_id:
 
         above = item+Vec3(0,1,0)
 
         if (above.x,above.y,above.z) in parser.rs_blocks:
-            sv_out.addDef(vecToStr(above), '(p0_'+vecToStr(item)+"&2'h2)")
+            if (above not in parser.rs_inputs) and (above not in parser.rs_components):
+                sv_out.addDef(vecToStr(above), '(p0_'+vecToStr(item)+"&3'h4)")
 
         if 'WALL' in block_id:
-            sv_out.addDef(vecToStr(item), '((~p0_'+vecToStr(item+dirToVec(ppt['facing']))+")&2'h2)")
+            sv_out.addDef(vecToStr(item), '((~p0_'+vecToStr(item+dirToVec(ppt['facing']))+")&3'h4)")
         else:
-            sv_out.addDef(vecToStr(item), '((~p0_'+vecToStr(item+Vec3(0,-1,0))+")&2'h2)")
-
-    elif block_id == 'REDSTONE_WIRE':
-        pass
+            sv_out.addDef(vecToStr(item), '((~p0_'+vecToStr(item+Vec3(0,-1,0))+")&3'h4)")
 
     elif block_id == 'REPEATER':
-        pass
+
+        src_blk = item-dirToVec(ppt['facing'])
+        dst_blk = item+dirToVec(ppt['facing'])
+
+        if (dst_blk not in parser.rs_inputs) and (dst_blk not in parser.rs_components):
+            sv_out.addDef(vecToStr(dst_blk), '((|p0_'+vecToStr(src_blk)+"[2:1])<<2)")
+
+
+# Make wires and connect to blocks.
+
+
+# Assign power from charged blocks.
+
 
 
 
