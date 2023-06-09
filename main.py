@@ -2,13 +2,13 @@ from mcpi.connection import Connection
 from mcpi.vec3 import Vec3
 
 from file_handler import FileHandler
-from world_parser import WorldParser
+from world_parser import WorldParser, getAdjBlocks
 
-
+# Convert a Vec3 object to a string: x_y_z.
 def vecToStr(pos):
     return str(pos.x) + '_' + str(pos.y) + '_' + str(pos.z)
 
-
+# Convert cardinal direction to vector, and invert.
 def dirToVec(facing):
     if(facing == 'north'):
         return Vec3(0,0,1)
@@ -93,7 +93,10 @@ for item in parser.rs_components:
 
 
 # Assign power from charged blocks.
-
+for item in parser.rs_outputs:
+    for adj in getAdjBlocks(item):
+        if(adj.x,adj.y,adj.z) in parser.rs_blocks:
+            sv_out.addDef(vecToStr(item), "{2'h0,|p0_"+vecToStr(adj)+"[2:1]}")
 
 
 

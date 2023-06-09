@@ -15,9 +15,15 @@ Convert Redstone circuits from Minecraft into synthesizable System Verilog.
 <a name="overview"></a>
 # 1 Overview
 
-This project aims to provide the ability to convert from redstone to system verilog. The output could then be loaded onto an FPGA Dev Board or simulator. Another goal is to make this program as simple and easy to understand as possible, which is why it is written in Python without using too many advanced features of the language.
+[rj_og]: https://github.com/zhuowei/RaspberryJuice
 
-Currently, this project is compatible with Minecraft Java 1.18.1, but requires the RaspberryJuice mod and the mcpi library for Python.
+[rj_fork]: https://github.com/wensheng/JuicyRaspberryPie
+
+[mcpi_link]: https://github.com/martinohanlon/mcpi
+
+This project aims to provide the ability to design digital logic in redstone, and convert to system verilog. The output could then be loaded onto an FPGA Dev Board or simulator. Another goal of this project is to make the source as simple and easy to understand as possible, which is why it is written in Python without using too many advanced features of the language.
+
+Currently, this project is compatible with Minecraft Java 1.18.1, but requires the [RaspberryJuice][rj_og] mod (specifically [this][rj_fork] fork which supports 1.18.1) and the [mcpi][mcpi_link] library for Python.
 
 <a name="installation"></a>
 # 2 Installation
@@ -25,8 +31,6 @@ Currently, this project is compatible with Minecraft Java 1.18.1, but requires t
 [forge_dl]: https://files.minecraftforge.net/net/minecraftforge/forge/index_1.18.1.html
 
 [jrp_dl]: https://github.com/wensheng/JuicyRaspberryPie/releases/download/v0.3/juicyraspberrypie-forge-1.18.1.jar
-
-[mcpi_link]: https://github.com/martinohanlon/mcpi
 
 In order to use this project, follow these steps:
 
@@ -81,7 +85,7 @@ In the future, maybe signs could be used to name signals, and declare them as in
 
 Future ideas:
 
-- Signs - Use keywords such as `SOURCE`, `DESTINATION`, `INPUT` and `OUTPUT` to declare signals within the world.
+- Signs - Use keywords such as `SOURCE`, `DESTINATION`, `INPUT` and `OUTPUT` to name signals within the world.
 
 
 
