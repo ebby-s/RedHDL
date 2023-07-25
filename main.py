@@ -32,7 +32,7 @@ parser = WorldParser(conn, 20)
 # Parse current world.
 parser.captureWorldState()
 
-
+rs_wires = []
 
 # Register inputs, outputs and relevant blocks with file handler.
 for item in parser.rs_inputs:
@@ -88,8 +88,73 @@ for item in parser.rs_components:
         if (dst_blk not in parser.rs_inputs) and (dst_blk not in parser.rs_components):
             sv_out.addDef(vecToStr(dst_blk), '((|p0_'+vecToStr(src_blk)+"[2:1])<<2)")
 
+    elif 'WIRE' in block_id:
 
-# Make wires and connect to blocks.
+        rs_wires.append(item)
+
+
+def vec3_to_tuple(vec):
+    return (vec.x, vec.y, vec.z)
+
+def tuple_to_vec3(tup):
+    return Vec3(tup[0],tup[1],tup[2])
+
+# Find neighbors of a redstone wire block.
+def neighbors(graph, node, ppts):
+    neighbors = []
+    ppt = ppts[node.x][node.y][node.z][1]
+
+    for key in ['north', 'south', 'east', 'west']:
+
+        if ppt[key] == 'up':
+            if (node - dirToVec(key) + Vec3(0,1,0)) in graph:
+                neighbors.append((node - dirToVec(key) + Vec3(0,1,0)))
+        if ppt[key] == 'side':
+            if (node - dirToVec(key)) in graph:
+                neighbors.append((node - dirToVec(key)))
+            elif (node - dirToVec(key) + Vec3(0,-1,0)) in graph:
+                neighbors.append((node - dirToVec(key) + Vec3(0,-1,0)))
+
+    return neighbors
+
+# Search all wires connected to a node and group connected ones.
+def dfs(graph, node, visited):
+
+    visited.add(vec3_to_tuple(node))
+    group = [node]
+
+    for neighbor in neighbors(graph, node, parser.rs_ppts):
+        if vec3_to_tuple(neighbor) not in visited:
+            group_ext, visited = dfs(graph, neighbor, visited)
+            group += group_ext
+
+    return group, visited
+
+# Group redstone wires
+rs_wire_groups = []
+visited = set()
+
+for block in rs_wires:
+    if vec3_to_tuple(block) not in visited:
+        group, visited = dfs(rs_wires, block, visited)
+        rs_wire_groups.append(group)
+
+# Connect wires to blocks.
+for group in rs_wire_groups:
+
+    sv_out.addDeclr(vecToStr(group[0]) + "_w")
+
+    for wire in group:
+        for side in [Vec3(0,-1,0), Vec3(1,0,0), Vec3(-1,0,0), Vec3(0,0,1), Vec3(0,0,1)]:
+            adj = wire + side
+            if (adj.x,adj.y,adj.z) in parser.rs_blocks:
+                sv_out.addDef(vecToStr(adj), "(p0_" + vecToStr(group[0]) + "_w << 1)")
+                sv_out.addDef(vecToStr(group[0]) + "_w", "p0_" + vecToStr(adj) + "[2]")
+
+        for side in [Vec3(0,1,0)]:
+            adj = wire + side
+            if (adj.x,adj.y,adj.z) in parser.rs_blocks:
+                sv_out.addDef(vecToStr(group[0]) + "_w", "p0_" + vecToStr(adj) + "[2]")
 
 
 # Assign power from charged blocks.
