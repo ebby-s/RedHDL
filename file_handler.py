@@ -31,20 +31,24 @@ class FileHandler:
         handle = open(self.name,'w')
 
         # Write header
-        handle.write('module '+self.name.split('.')[0]+' (\n')
+        handle.write('module '+self.name.split('.')[0].split('/')[-1]+' (\n')
 
         # Declare inputs
         handle.write('\t// Declare input signals.\n')
 
-        for line in self.inputs:
+        for line in self.inputs[:-1]:
             handle.write('\tinput  logic ' + line + ',\n')
+        if len(self.outputs) != 0:
+            if len(self.inputs) != 0: handle.write('\tinput  logic ' + self.inputs[-1] + ',\n')
+        else:
+            if len(self.inputs) != 0: handle.write('\tinput  logic ' + self.inputs[-1] + '\n')
 
         # Declare outputs
         handle.write('\t// Declare output signals.\n')
 
         for line in self.outputs[:-1]:
             handle.write('\toutput logic ' + line + ',\n')
-        handle.write('\toutput logic ' + self.outputs[-1] + '\n')
+        if len(self.outputs) != 0: handle.write('\toutput logic ' + self.outputs[-1] + '\n')
 
         # Close header
         handle.write(');\n\n')
@@ -87,7 +91,8 @@ class FileHandler:
 
 
     def writeInstFile(self):
-        
+
+        # Read names of inputs and outputs.
         inputs = []
         outputs = []
 
@@ -100,26 +105,40 @@ class FileHandler:
                 outputs.append(line[1])
 
         # Create the file.
-        handle = open(self.name.split('.')[0]+'_names.sv','w')
+        handle = open(self.name.split('.')[0]+'_top.sv','w')
 
-        # Write header
-        handle.write(self.name.split('.')[0]+' inst_gen (\n')
+        # Declare top module.
+        handle.write("module top (\n")
+
+        for line in inputs[:-1]:
+            handle.write('\tinput ' + line + ',\n')
+        if len(outputs) != 0:
+            if len(inputs) != 0: handle.write('\tinput ' + inputs[-1] + ',\n')
+        else:
+            if len(inputs) != 0: handle.write('\tinput ' + inputs[-1] + '\n')
+
+        for line in outputs[:-1]:
+            handle.write('\toutput ' + line + ',\n')
+        if len(outputs) != 0: handle.write('\toutput ' + outputs[-1] + '\n')
+
+        handle.write(");\n\n")
+
+        # Write inst.
+        handle.write(self.name.split('.')[0].split('/')[-1]+' inst_gen (\n')
 
         # Declare inputs
-        handle.write('\t// Declare input signals.\n')
-
         for i,line in enumerate(self.inputs):
             if(len(inputs) > i):
                 handle.write('\t.' + line + '(' + inputs[i] + '),\n')
 
         # Declare outputs
-        handle.write('\t// Declare output signals.\n')
-
         for i,line in enumerate(self.outputs[:-1]):
             if(len(outputs) > i):
                 handle.write('\t.' + line + '(' + outputs[i] + '),\n')
         handle.write('\t.' + self.outputs[-1] + '(' + outputs[len(self.outputs)-1] + ')\n')
 
-        # Close header
-        handle.write(');\n\n')
+        # Close inst.
+        handle.write(');\n\nendmodule\n')
+
+        handle.close()
 

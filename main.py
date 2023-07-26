@@ -25,7 +25,7 @@ def dirToVec(facing):
 conn = Connection("127.0.0.1", 4712)
 
 # Create output file.
-sv_out = FileHandler('rs_out.sv')
+sv_out = FileHandler('orangecrab/red.sv')
 
 # Create parser.
 parser = WorldParser(conn, 20)
@@ -76,16 +76,16 @@ for item in parser.rs_components:
                 sv_out.addDef(vecToStr(above), '(p0_'+vecToStr(item)+"&3'h4)")
 
         if 'WALL' in block_id:
-            sv_out.addDef(vecToStr(item), '((~p0_'+vecToStr(item+dirToVec(ppt['facing']))+")&3'h4)")
+            sv_out.addDef(vecToStr(item), '((~|p0_'+vecToStr(item+dirToVec(ppt['facing']))+"[2:1])<<2)")
         else:
-            sv_out.addDef(vecToStr(item), '((~p0_'+vecToStr(item+Vec3(0,-1,0))+")&3'h4)")
+            sv_out.addDef(vecToStr(item), '((~|p0_'+vecToStr(item+Vec3(0,-1,0))+"[2:1])<<2)")
 
     elif block_id == 'REPEATER':
 
         src_blk = item-dirToVec(ppt['facing'])
         dst_blk = item+dirToVec(ppt['facing'])
 
-        if (dst_blk not in parser.rs_inputs) and (dst_blk not in parser.rs_components):
+        if (dst_blk not in parser.rs_inputs) and ('TORCH' not in parser.rs_ppts[dst_blk.x][dst_blk.y][dst_blk.z][0]):
             sv_out.addDef(vecToStr(dst_blk), '((|p0_'+vecToStr(src_blk)+"[2:1])<<2)")
 
     elif 'WIRE' in block_id:

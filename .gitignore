@@ -1,4 +1,5 @@
 __pycache__
-rs_out.sv
 notes.txt
-rs_out_names.*
+*.sv
+*.rs
+*.dfu
