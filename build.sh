@@ -1,7 +1,9 @@
 #!/bin/sh
 
+# Add OSS tools to path.
 export PATH=/home/ebby/oss-cad-suite/bin:$PATH
 
+# Go to project directory.
 cd /mnt/c/Users/ebbys/Desktop/RedHDL/orangecrab
 
 echo "[INFO] Generating bitstream."

@@ -1,8 +1,13 @@
 @echo off
 
+echo [INFO] Capturing Minecraft world.
+
+python main.py
+
+
 echo [INFO] Finding OrangeCrab revision and USB busid.
 
-wsl -e echo
+@REM Find devid (Device ID) and devrv (Device Revision).
 set "devln=none"
 set "devid=none"
 set "devrv=none"
@@ -12,11 +17,14 @@ for /F "usebackq tokens=*" %%a in (`powershell -command "$str = '%devln%'; $rege
     set "devrv=%%a"
 )
 
-echo %devln% | findstr /C:"Not" > nul
+@REM Start WSL before moving USB device from Windows to WSL.
+wsl -e echo
 
 if "%devid%"=="none" (
     echo [INFO] No OrangeCrab device found, continuing without DFU.
 ) else (
+    echo %devln% | findstr /C:"Not" > nul
+
     if %errorlevel% equ 0 (
         echo [INFO] Found OrangeCrab Rev. %devrv% at busID %devid%, attaching to WSL.
         usbipd wsl attach --busid %devid%
@@ -25,9 +33,5 @@ if "%devid%"=="none" (
     )
 )
 
-
-echo [INFO] Capturing Minecraft world.
-
-python main.py
-
+@REM Generate bitstream and flash to device from WSL.
 wsl ./build.sh
