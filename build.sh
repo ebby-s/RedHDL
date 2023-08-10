@@ -4,7 +4,7 @@
 export PATH=/home/ebby/oss-cad-suite/bin:$PATH
 
 # Go to project directory.
-cd /mnt/c/Users/ebbys/Desktop/RedHDL/orangecrab
+cd orangecrab
 
 echo "[INFO] Generating bitstream."
 
