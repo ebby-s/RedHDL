@@ -23,7 +23,7 @@ class WorldParser:
         self.conn = conn
         self.search_range = search_range
         # Store properties
-        self.rs_ppts = [[[[] for k in range(40)] for j in range(40)] for i in range(40)]
+        self.rs_ppts = [[[('',{}) for k in range(40)] for j in range(40)] for i in range(40)]
         # Store all relevant blocks, remove duplicates
         self.rs_blocks = set()
         # Store locations of inputs, outputs and other components
@@ -47,7 +47,7 @@ class WorldParser:
             properties = dict(zip(names, values))
 
             # Store data in properties list
-            self.rs_ppts[i][j][k] = [block_id, properties]
+            self.rs_ppts[i][j][k] = (block_id, properties)
 
             # print(block_id, properties, i, j, k)
 
@@ -68,7 +68,7 @@ class WorldParser:
     def captureWorldState(self):
 
         # Reset previous values
-        self.rs_ppts = [[[[] for k in range(40)] for j in range(40)] for i in range(40)]
+        self.rs_ppts = [[[('',{}) for k in range(40)] for j in range(40)] for i in range(40)]
         self.rs_blocks = set()
         self.rs_inputs = []
         self.rs_components = []
