@@ -19,11 +19,12 @@ def parseData(data):
 
 class WorldParser:
 
-    def __init__(self, conn, search_range):
+    def __init__(self, conn, search_range=20, height=10):
         self.conn = conn
         self.search_range = search_range
+        self.height = height
         # Store properties
-        self.rs_ppts = [[[('',{}) for k in range(40)] for j in range(40)] for i in range(40)]
+        self.rs_ppts = [[[('',{}) for k in range(2*self.search_range)] for j in range(2*self.height)] for i in range(2*self.search_range)]
         # Store all relevant blocks, remove duplicates
         self.rs_blocks = set()
         # Store locations of inputs, outputs and other components
@@ -68,7 +69,7 @@ class WorldParser:
     def captureWorldState(self):
 
         # Reset previous values
-        self.rs_ppts = [[[('',{}) for k in range(40)] for j in range(40)] for i in range(40)]
+        self.rs_ppts = [[[('',{}) for k in range(2*self.search_range)] for j in range(2*self.height)] for i in range(2*self.search_range)]
         self.rs_blocks = set()
         self.rs_inputs = []
         self.rs_components = []
@@ -77,11 +78,11 @@ class WorldParser:
         # Center search on player position
         pos = self.getPlayerPos()
         # Change pos to bottom-north-west corner of search area
-        pos -= Vec3(self.search_range,self.search_range,self.search_range)
+        pos -= Vec3(self.search_range,self.height,self.search_range)
 
         # Search 3D area, record relevant blocks and properties
         for i in range(2*self.search_range):
-            for j in range(2*self.search_range):
+            for j in range(2*self.height):
                 for k in range(2*self.search_range):
 
                     # Get current block data.
