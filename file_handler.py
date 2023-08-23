@@ -6,39 +6,62 @@ class FileHandler:
 
         self.name = name
 
-        self.inputs = []
-        self.outputs = []
-        self.signals = []
-        self.signals_w = []
+        self.inputs = []       # Input signals
+        self.outputs = []      # Output signals
+        self.signals = []      # Block signals
 
-        self.defs = {}
-        self.latched = {}
+        self.signals_w = set() # Wire group signals
+        self.signals_t = set() # Torch signals
+        self.signals_f = set() # Flop internal signals
+        self.signals_r = set() # Repeater signals
+        self.signals_e = set() # Enable internal signals
+
+        self.defs = {}         # Combinatorial internal signals
+        self.torches = set()   # Definitions for torches
+        self.flops = {}        # Sequential internal signals
+        self.reps = set()      # Repeater signal definitions
+        self.enables = {}      # Enables for repeaters
 
     def addInput(self, pos_string):
-        self.inputs.append('i_' + pos_string)
+        self.inputs.append('i_'+pos_string)
 
     def addOutput(self, pos_string):
-        self.outputs.append('o_' + pos_string)
+        self.outputs.append('o_'+pos_string)
 
     def addDeclr(self, pos_string):
-        if pos_string[-1] == 'w':
-            self.signals_w.append('p0_' + pos_string)
+        if pos_string[0] == 'w':
+            self.signals_w.add(pos_string)
+            self.defs[pos_string] = set()
         else:
-            self.signals.append('p0_' + pos_string)
-        self.defs['p0_' + pos_string] = set()
+            self.signals.append('p0_'+pos_string)
+            self.defs['p0_'+pos_string] = set()
 
     def addDef(self, pos_string, line):
-        if ('p0_' + pos_string) in self.defs.keys():
-            self.defs['p0_' + pos_string].add(line)
-        else:
-            self.latched['p0_' + pos_string][1].add(line)
+        self.defs[pos_string].add(line)
 
-    def addLatch(self, pos_string, line):
-        if ('p0_' + pos_string) in self.latched.keys():
-            self.latched['p0_' + pos_string][0].add(line)
+    def addTorch(self, pos_string, line):
+        self.defs['p0_'+pos_string].add('(tr_'+pos_string+'<<2)')
+        self.signals_t.add('tr_'+pos_string)
+        self.torches.add(('tr_'+pos_string, line))
+
+    def addFlop(self, pos_string, line, delay, loc):
+        self.defs['p0_'+pos_string].add('(ff_'+pos_string+'<<2)')
+        self.signals_f.add('ff_'+pos_string)
+        if 'ff_'+pos_string in self.flops:
+            self.flops['ff_'+pos_string].add((line, delay, loc))
         else:
-            self.latched['p0_' + pos_string] = (set([line]), self.defs['p0_' + pos_string])
-            self.defs.pop('p0_' + pos_string, None)
+            self.flops['ff_'+pos_string] = set([(line, delay, loc)])
+
+    def addRep(self, pos_string, line, delay=0, loc=None):
+        self.signals_r.add('rp_'+pos_string)
+        self.reps.add(('rp_'+pos_string, line, delay, loc))
+
+    def addEnable(self, pos_string, line, delay, loc):
+        self.signals_e.add('en_'+pos_string)
+        if 'en_'+pos_string in self.enables:
+            self.enables['en_'+pos_string].add((line, delay, loc))
+        else:
+            self.enables['en_'+pos_string] = set([(line, delay, loc)])
 
     def writeFile(self):
 
@@ -64,26 +87,112 @@ class FileHandler:
         # Declare internal signals
         handle.write('\t// Declare internal signals.\n')
         handle.write('\tlogic [2:0] ' + ';\n\tlogic [2:0] '.join(self.signals) + ';\n')
-        handle.write('\tlogic       ' + ';\n\tlogic       '.join(self.signals_w) + ';\n\n')
+        for group in [self.signals_w, self.signals_t, self.signals_f, self.signals_r, self.signals_e]:
+            if len(group) != 0: handle.write(''.join(['\tlogic       '+sig+';\n' for sig in group]))
 
         # Assign combinatorial signals
         handle.write('\t// Assign internal signals.\n')
         for line in self.defs:
-            handle.write('\tassign ' + line + ' = ')
-            handle.write(' | '.join(self.defs[line]) if len(self.defs[line]) != 0 else '0')
-            handle.write(';\n')
+            handle.write('\tassign '+line+' = '+(' | '.join(self.defs[line]) if len(self.defs[line]) != 0 else '0')+';\n')
+        handle.write('\n')
 
-        # Assign latches
-        handle.write('\n\t// Assign latches.\n')
-        for line in self.latched:
+        # Make torches
+        if len(self.torches) != 0:
+            handle.write('\t// Make torches.\n')
             handle.write('\talways_ff @(posedge clk) begin\n')
-            handle.write('\t\tif (' + ' || '.join(self.latched[line][0]) + ') begin\n')
-            handle.write('\t\t\t' + line + ' = ' + ' | '.join(self.latched[line][1]) + ';\n')
-            handle.write('\t\tend\n' + '\tend\n\n')
+            handle.write(''.join(['\t\t'+torch+' <= '+line+';\n' for torch,line in self.torches]))
+            handle.write('\tend\n\n')
+
+        # Make flops
+        handle.write('\t// Make flops.\n')
+        for flop in self.flops:
+
+            for i,line in enumerate(self.flops[flop]):
+                handle.write('\tlogic ['+str(line[1]-1)+':0] '+flop+'_'+str(i)+'_delay;\n')
+                handle.write('\tlogic       '+flop+'_'+str(i)+'_in;\n')
+
+            handle.write('\n\tassign '+flop+' = '+' | '.join([flop+'_'+str(i)+'_delay[0]' for i in range(len(self.flops[flop]))])+';\n\n')
+            handle.write(''.join(['\tassign '+flop+'_'+str(i)+'_in = '+line[0]+';\n' for i,line in enumerate(self.flops[flop])]))
+
+            handle.write('\n\talways_ff @(posedge clk) begin\n')
+            for i,line in enumerate(self.flops[flop]):
+                if line[1] == 1:
+                    write_line = flop+'_'+str(i)+'_delay <= '+flop+'_'+str(i)+'_in;\n'
+                else:
+                    write_line = flop+'_'+str(i)+'_delay <= {'+flop+'_'+str(i)+'_in, '+flop+'_'+str(i)+'_delay['+str(line[1]-1)+':1]};\n'
+
+                if 'en_'+line[2] in self.signals_e:
+                    handle.write('\t\tif (~en_'+line[2]+') begin\n')
+                    handle.write('\t\t\t'+write_line)
+                    handle.write('\t\tend\n')
+                else:
+                    handle.write('\t\t'+write_line)
+            handle.write('\tend\n\n')
+
+        # Make series repeaters
+        handle.write('\n\t// Make series repeaters.\n')
+
+        reps_comb = [rep for rep in self.reps if rep[2] == 0]
+        reps_flop = [rep for rep in self.reps if rep[2] == 1]
+        reps_vari = [rep for rep in self.reps if rep[2]  > 1]
+
+        if len(reps_comb) != 0:
+            handle.write(''.join(['\tassign '+line[0]+' = '+line[1]+';\n' for line in reps_comb])+'\n')
+
+        if len(reps_flop) != 0:
+            handle.write('\talways_ff @(posedge clk) begin\n')
+            for rep,line,delay,loc in reps_flop:
+                if 'en_'+loc in self.signals_e:
+                    handle.write('\t\tif (~en_'+loc+') begin\n')
+                    handle.write('\t\t\t'+rep+' <= '+line+';\n')
+                    handle.write('\t\tend\n')
+                else:
+                    handle.write('\t\t'+rep+' <= '+line+';\n')
+            handle.write('\tend\n\n')
+
+        if len(reps_vari) != 0:
+            handle.write(''.join(['\tlogic ['+str(line[2]-1)+':0] '+line[0]+'_delay;\n' for line in reps_vari])+'\n')
+            handle.write(''.join(['\tassign '+line[0]+' = '+line[0]+'_delay[0];\n' for line in reps_vari])+'\n')
+
+            handle.write('\talways_ff @(posedge clk) begin\n')
+            for rep,line,delay,loc in reps_vari:
+                if 'en_'+loc in self.signals_e:
+                    handle.write('\t\tif (~en_'+loc+') begin\n')
+                    handle.write('\t\t\t'+rep+'_delay <= {'+line+', '+rep+'_delay['+str(delay-1)+':1]};\n')
+                    handle.write('\t\tend\n')
+                else:
+                    handle.write('\t\t'+rep+'_delay <= {'+line+', '+rep+'_delay['+str(delay-1)+':1]};\n')
+            handle.write('\tend\n\n')
+        
+        # Make enables
+        handle.write('\t// Make enables.\n')
+        for enable in self.enables:
+
+            for i,line in enumerate(self.enables[enable]):
+                handle.write('\tlogic ['+str(line[1]-1)+':0] '+enable+'_'+str(i)+'_delay;\n')
+                handle.write('\tlogic       '+enable+'_'+str(i)+'_in;\n')
+
+            handle.write('\n\tassign '+enable+' = '+' | '.join([enable+'_'+str(i)+'_delay[0]' for i in range(len(self.enables[enable]))])+';\n\n')
+            handle.write(''.join(['\tassign '+enable+'_'+str(i)+'_in = '+line[0]+';\n' for i,line in enumerate(self.enables[enable])]))
+
+            handle.write('\n\talways_ff @(posedge clk) begin\n')
+            for i,line in enumerate(self.enables[enable]):
+                if line[1] == 1:
+                    write_line = enable+'_'+str(i)+'_delay <= '+enable+'_'+str(i)+'_in;\n'
+                else:
+                    write_line = enable+'_'+str(i)+'_delay <= {'+enable+'_'+str(i)+'_in, '+enable+'_'+str(i)+'_delay['+str(line[1]-1)+':1]};\n'
+
+                if 'en_'+line[2] in self.signals_e:
+                    handle.write('\t\tif (~en_'+line[2]+') begin\n')
+                    handle.write('\t\t\t'+write_line)
+                    handle.write('\t\tend\n')
+                else:
+                    handle.write('\t\t'+write_line)
+            handle.write('\tend\n\n')
 
         # Assign outputs
-        handle.write('\t// Assign output signals.\n' + '\tassign ')
-        handle.write(';\n\tassign '.join([(line+' = |p0'+line[1:]) for line in self.outputs])+';')
+        handle.write('\t// Assign output signals.\n')
+        handle.write(''.join(['\tassign '+line+' = |p0'+line[1:]+';\n' for line in self.outputs]))
 
         # End definiton and close file.
         handle.write('\n\nendmodule\n')

@@ -35,6 +35,11 @@ def vecToTuple(vec):
 def tupleToVec(tup):
     return Vec3(tup[0],tup[1],tup[2])
 
+def sameAxis(dir1, dir2):
+    axis1 = ['north', 'south']
+    axis2 = ['west', 'east']
+
+    return ((dir1 in axis1) and (dir2 in axis1)) or ((dir1 in axis2) and (dir2 in axis2))
 
 
 # Connect to the local Minecraft server.
@@ -44,7 +49,7 @@ conn = Connection("127.0.0.1", 4712)
 sv_out = FileHandler('orangecrab/red.sv')
 
 # Create parser.
-parser = WorldParser(conn, 20)
+parser = WorldParser(conn, 50, 10)
 # Parse current world.
 parser.captureWorldState()
 
@@ -63,16 +68,16 @@ for item in parser.rs_blocks:
 # Define signals related to inputs.
 for item in parser.rs_inputs:
 
-    sv_out.addDef(vecToStr(item), '(i_'+vecToStr(item)+'<<2)')
-
     ppt = parser.rs_ppts[item.x][item.y][item.z][1]
 
+    sv_out.addDef('p0_'+vecToStr(item), '(i_'+vecToStr(item)+'<<2)')
+
     if ppt['face'] == 'CEILING':
-        sv_out.addDef(vecToStr(item+Vec3(0,1,0)), '(p0_'+vecToStr(item)+"&3'h4)")
+        sv_out.addDef('p0_'+vecToStr(item+Vec3(0,1,0)), '(p0_'+vecToStr(item)+"&3'h4)")
     elif ppt['face'] == 'FLOOR':
-        sv_out.addDef(vecToStr(item+Vec3(0,-1,0)), '(p0_'+vecToStr(item)+"&3'h4)")
+        sv_out.addDef('p0_'+vecToStr(item+Vec3(0,-1,0)), '(p0_'+vecToStr(item)+"&3'h4)")
     else:
-        sv_out.addDef(vecToStr(item+dirToVec(ppt['facing'])), '(p0_'+vecToStr(item)+"&3'h4)")
+        sv_out.addDef('p0_'+vecToStr(item+dirToVec(ppt['facing'])), '(p0_'+vecToStr(item)+"&3'h4)")
 
 # Add definitons for Redstone blocks, torches and repeaters.
 for item in parser.rs_components:
@@ -81,44 +86,53 @@ for item in parser.rs_components:
     ppt = parser.rs_ppts[item.x][item.y][item.z][1]
 
     if block_id == 'REDSTONE_BLOCK':
-        sv_out.addDef(vecToStr(item), "3'h4")
+        sv_out.addDef('p0_'+vecToStr(item), "3'h4")
 
     elif 'TORCH' in block_id:
 
         above = item+Vec3(0,1,0)
-
-        if (above.x,above.y,above.z) in parser.rs_blocks:
+        if vecToTuple(above) in parser.rs_blocks:
             if (above not in parser.rs_inputs) and (above not in parser.rs_components):
-                sv_out.addDef(vecToStr(above), '(p0_'+vecToStr(item)+"&3'h4)")
+                sv_out.addDef('p0_'+vecToStr(above), '(p0_'+vecToStr(item)+"&3'h4)")
 
         if 'WALL' in block_id:
-            sv_out.addDef(vecToStr(item), '((~|p0_'+vecToStr(item+dirToVec(ppt['facing']))+"[2:1])<<2)")
+            sv_out.addTorch(vecToStr(item), '(~|p0_'+vecToStr(item+dirToVec(ppt['facing']))+'[2:1])')
         else:
-            sv_out.addDef(vecToStr(item), '((~|p0_'+vecToStr(item+Vec3(0,-1,0))+"[2:1])<<2)")
+            sv_out.addTorch(vecToStr(item), '(~|p0_'+vecToStr(item+Vec3(0,-1,0))+'[2:1])')
 
     elif block_id == 'REPEATER':
 
         src_blk = item-dirToVec(ppt['facing'])
         dst_blk = item+dirToVec(ppt['facing'])
 
-        if ((src_blk.x,src_blk.y,src_blk.z) not in parser.rs_blocks) or ((dst_blk.x,dst_blk.y,dst_blk.z) not in parser.rs_blocks):
+        if vecToTuple(dst_blk) not in parser.rs_blocks:
+            continue
+        if dst_blk in parser.rs_inputs:
             continue
 
-        # Handle blocks.
-        if (dst_blk not in parser.rs_inputs) and (dst_blk not in parser.rs_components):
-            sv_out.addDef(vecToStr(dst_blk), '((|p0_'+vecToStr(src_blk)+"[2:1])<<2)")
+        dst_id  = parser.rs_ppts[dst_blk.x][dst_blk.y][dst_blk.z][0]
+        dst_ppt = parser.rs_ppts[dst_blk.x][dst_blk.y][dst_blk.z][1]
+        src_id  = parser.rs_ppts[src_blk.x][src_blk.y][src_blk.z][0]
+        src_ppt = parser.rs_ppts[src_blk.x][src_blk.y][src_blk.z][1]
 
-        if dst_blk in parser.rs_components:
-            # Handle wires.
-            if 'WIRE' in parser.rs_ppts[dst_blk.x][dst_blk.y][dst_blk.z][0]:
-                sv_out.addDef(vecToStr(dst_blk), '((|p0_'+vecToStr(src_blk)+"[2:1])<<2)")
+        if vecToTuple(src_blk) not in parser.rs_blocks:
+            line = '0'
+        elif ('WIRE' in src_id) or (src_id == 'REPEATER'):
+            line = 'rp_'+vecToStr(item)
+        else:
+            line = '(|p0_'+vecToStr(src_blk)+'[2:1])'
 
-            # Handle repeaters.
-            if 'REPEATER' in parser.rs_ppts[dst_blk.x][dst_blk.y][dst_blk.z][0]:
-                sv_out.addLatch(vecToStr(dst_blk+dirToVec(parser.rs_ppts[dst_blk.x][dst_blk.y][dst_blk.z][1]['facing'])), '(~|p0_'+vecToStr(src_blk)+"[2:1])")
+        if dst_blk not in parser.rs_components:
+            sv_out.addFlop(vecToStr(dst_blk), line, int(ppt['delay']), vecToStr(item))
+        elif 'WIRE' in dst_id:
+            sv_out.addRep(vecToStr(dst_blk), line, int(ppt['delay']), vecToStr(item))
+        elif dst_id == 'REPEATER':
+            if ppt['facing'] == dst_ppt['facing']:
+                sv_out.addRep(vecToStr(dst_blk), line, int(ppt['delay']), vecToStr(item))
+            elif not sameAxis(ppt['facing'], dst_ppt['facing']):
+                sv_out.addEnable(vecToStr(dst_blk), line, int(ppt['delay']), vecToStr(item))
 
     elif 'WIRE' in block_id:
-
         rs_wires.append(item)
 
 # Find all neighbors of a redstone wire block.
@@ -164,35 +178,33 @@ for block in rs_wires:
 # Connect wires to blocks.
 for group in rs_wire_groups:
 
-    sv_out.addDeclr(vecToStr(group[0]) + "_w")
+    sides = [Vec3(1,0,0), Vec3(-1,0,0), Vec3(0,0,1), Vec3(0,0,-1), Vec3(0,1,0), Vec3(0,0,0), Vec3(0,-1,0)]
 
-    for wire in group:
-        for side in [Vec3(0,-1,0)]:
-            adj = wire + side
-            if (adj.x,adj.y,adj.z) in parser.rs_blocks:
-                sv_out.addDef(vecToStr(group[0]) + "_w", "p0_" + vecToStr(adj) + "[2]")
-                sv_out.addDef(vecToStr(adj), "(p0_" + vecToStr(group[0]) + "_w << 1)")
+    sv_out.addDeclr('w_'+vecToStr(group[0]))
 
-        for side in [Vec3(0,1,0), Vec3(0,0,0)]:
-            adj = wire + side
-            if (adj.x,adj.y,adj.z) in parser.rs_blocks:
-                sv_out.addDef(vecToStr(group[0]) + "_w", "p0_" + vecToStr(adj) + "[2]")
+    for adj, wire, side in [(wire+side, wire, side) for side in sides for wire in group]:
 
-        for side in [Vec3(1,0,0), Vec3(-1,0,0), Vec3(0,0,1), Vec3(0,0,-1)]:
-            adj = wire + side
-            if (adj.x,adj.y,adj.z) in parser.rs_blocks:
-                sv_out.addDef(vecToStr(group[0]) + "_w", "p0_" + vecToStr(adj) + "[2]")
-                if(parser.rs_ppts[wire.x][wire.y][wire.z][1][vecToDir(-side)] == "side"):
-                    sv_out.addDef(vecToStr(adj), "(p0_" + vecToStr(group[0]) + "_w << 1)")
+        if vecToTuple(adj) in parser.rs_blocks:
 
+            sv_out.addDef('w_'+vecToStr(group[0]), 'p0_'+vecToStr(adj)+'[2]')
+
+            if side == Vec3(0,-1,0):
+                sv_out.addDef('p0_'+vecToStr(adj), '(w_'+vecToStr(group[0])+'<<1)')
+            elif side in [Vec3(1,0,0), Vec3(-1,0,0), Vec3(0,0,1), Vec3(0,0,-1)]:
+                if (parser.rs_ppts[wire.x][wire.y][wire.z][1][vecToDir(-side)] == 'side') and (adj not in parser.rs_inputs):
+                    if (adj not in parser.rs_components):
+                        sv_out.addDef('p0_'+vecToStr(adj), '(w_'+vecToStr(group[0])+'<<1)')
+                    elif parser.rs_ppts[adj.x][adj.y][adj.z][0] == 'REPEATER':
+                        if parser.rs_ppts[adj.x][adj.y][adj.z][1]['facing'] == vecToDir(side):
+                            sv_out.addRep(vecToStr(adj), 'w_'+vecToStr(group[0]))
+                        elif parser.rs_ppts[adj.x][adj.y][adj.z][1]['facing'] == vecToDir(-side):
+                            sv_out.addDef('w_'+vecToStr(group[0]), 'rp_'+vecToStr(wire))
 
 # Assign power from charged blocks.
 for item in parser.rs_outputs:
     for adj in getAdjBlocks(item):
-        if(adj.x,adj.y,adj.z) in parser.rs_blocks:
-            sv_out.addDef(vecToStr(item), "{2'h0,|p0_"+vecToStr(adj)+"[2:1]}")
-
-
+        if vecToTuple(adj) in parser.rs_blocks:
+            sv_out.addDef('p0_'+vecToStr(item), "{2'h0,|p0_"+vecToStr(adj)+'[2:1]}')
 
 
 sv_out.writeFile()
