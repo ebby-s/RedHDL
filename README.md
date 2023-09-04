@@ -8,8 +8,9 @@ Convert Redstone circuits from Minecraft into synthesizable System Verilog.
 3. [Usage](#usage)
 4. [Features](#features)
 5. [Examples](#examples)
-    *  [Basic Logic Gates](#overview)
-    *  [Adder circuit](#overview)
+    *  [Basic Logic Gates](#logic_gates)
+    *  [Adder](#adder)
+    *  [Binary Counter](#counter)
 6. [License](#license)
 
 <a name="overview"></a>
@@ -46,53 +47,71 @@ Now you're ready to go!
 <a name="usage"></a>
 # 3 Usage
 
+## 3.1 Minecraft to System Verilog
+
 Before running this program, you need to:
 
 1. Have Minecraft open, with the target world loaded.
 
-2. The player needs to be at the location of the taret redstone circuits because the program only scans a 40x40x40 area with the player in the centre.
+2. The player needs to be at the location of the taret redstone circuits because the program only scans a volume of blocks with the player at the centre.
 
-When these conditions are met, go to a terminal and run `main.py`.
+When these conditions are met, go to a terminal and run the following command:
+`python main.py -o rs_out.sv -w 40 -r 20`
 
-The output will be generated and written to a file named `rs_out.sv`, in the same directory.
+The output will be generated and written to a file named `rs_out.sv`, in the same directory. The search area is 80x40x80.
 
+## 3.2 Minecraft to OrangeCrab
+
+Alternatively, the `orangecrab` directory contains all the files required to take the output SV file and program an OrangeCrab board (r0.2.1). The `run.bat` and `build.sh` scripts automate this process.
 
 
 <a name="features"></a>
 # 4 Features
 
-Currently, only combinatorial circuits are supported. Support for components such as latches and flip-flops could be added in the future, but will change the mapping from redstone to HDL significantly.
+Currently, both combinational and sequential circuits are supported with a single clock. In-game, the Redstone clock ticks at 10Hz, this Redstone clock is used as the reference clock for all sequential circuits. Additional clocks can be generated using dividers for now.
 
-Components fully implemented:
+Fully implemented components:
 
-- Redstone Lamp - This is the only component that generates an output in HDL. It generates a 1-bit output signal.
+- Redstone Lamp - This is the only component that generates an output in the RTL. It generates a 1-bit output signal.
 
 - Lever/Button - These components are inputs to the system. They generate 1-bit input signals.
 
-- Redstone Torch - As in redstone, this can be used as an inverter.
+- Redstone Torch - An inverter followed by a delay of 1 cycle.
 
-- Redstone Block - Constantly powered.
+- Redstone Block - Constant '1' source.
 
-The next set of components could change behaviour depending on whether latches and flip-flops are supported.
+- Repeater - A delay of 1-4 cycles, set at compile-time. The 'locking' mechanism from Redstone is available, it is added as an enable signal in the RTL.
 
-In progress:
-
-- Repeater - Depending on the mode, acts as a buffer, latch or flip-flop.
-
-- Redstone Wire
-
-In the future, maybe signs could be used to name signals, and declare them as inputs or outputs.
+- Redstone Wire - Behaviour of the RTL matches Redstone, but signals do not decay in thr RTL. This component can be used to perform the logical OR operation.
 
 Future ideas:
 
-- Signs - Use keywords such as `SOURCE`, `DESTINATION`, `INPUT` and `OUTPUT` to name signals within the world.
+- Use signs keywords such as `SOURCE`, `DESTINATION`, `INPUT` and `OUTPUT` to name signals within the world.
+
+- Add another mode which allows full custom IC design. Components map to analogue rather than using System Verilog.
 
 
 
-<a name="Examples"></a>
+<a name="examples"></a>
 # 5 Examples
 
-TODO
+There are examples available in the `example_worlds` directory. This directory contains minecraft worlds with redstone designs.
+
+<a name="logic_gates"></a>
+## 5.1 Logic Gates
+
+A demonstration of the basic logic operations (AND, OR, XOR). These are built using the logical OR and NOT operations provided by Redstone wires & torches respectively.
+
+<a name="adder"></a>
+## 5.2 Adder
+
+This example contains a 2-bit adder, made with full adders.
+
+<a name="counter"></a>
+## 5.3 Binary Counter
+
+Using a 21-bit binary counter which ticks with the 48 MHz OrangeCrab clock, it is possible to slow the clock down enough to watch the high side bits count with human eyes. This example accomplishes exactly that.
+
 
 <a name="license"></a>
 # 6 License
