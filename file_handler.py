@@ -208,15 +208,18 @@ class FileHandler:
         outputs = []
         clk_name = ''
 
-        namefile = open(self.name.split('.')[0]+'_names.rs')
+        try:
+            namefile = open(self.name.split('.')[0]+'_names.rs')
 
-        for line in [x.replace('\n','').split(' ') for x in namefile.readlines()]:
-            if line[0] == "input":
-                inputs.append(line[1])
-            elif line[0] == "output":
-                outputs.append(line[1])
-            elif line[0] == "clock":
-                clk_name = line[1]
+            for line in [x.replace('\n','').split(' ') for x in namefile.readlines()]:
+                if line[0] == "input":
+                    inputs.append(line[1])
+                elif line[0] == "output":
+                    outputs.append(line[1])
+                elif line[0] == "clock":
+                    clk_name = line[1]
+        except:
+            return
 
         # Create the file.
         handle = open(self.name.split('.')[0]+'_top.sv','w')

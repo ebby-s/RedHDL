@@ -1,8 +1,18 @@
+import argparse
 from mcpi.connection import Connection
 from mcpi.vec3 import Vec3
 
 from file_handler import FileHandler
 from world_parser import WorldParser, getAdjBlocks
+
+# Parse optional CLI arguments.
+parser = argparse.ArgumentParser(description='RedHDL CLI options')
+parser.add_argument('--out', '-o', default='rs_out.sv', type=str,
+                    help='Path to output file. (rs_out.sv)')
+parser.add_argument('--width', '-w', default='40', type=int,
+                    help='Horizontal radius of search area. (40)')
+parser.add_argument('--height', '-r', default='20', type=int,
+                    help='Height of search area. (20)')
 
 # Convert a Vec3 object to a string: x_y_z.
 def vecToStr(pos):
@@ -41,15 +51,17 @@ def sameAxis(dir1, dir2):
 
     return ((dir1 in axis1) and (dir2 in axis1)) or ((dir1 in axis2) and (dir2 in axis2))
 
+# Get CLI arguments.
+args = parser.parse_args()
 
 # Connect to the local Minecraft server.
 conn = Connection("127.0.0.1", 4712)
 
 # Create output file.
-sv_out = FileHandler('orangecrab/red.sv')
+sv_out = FileHandler(args.out)
 
 # Create parser.
-parser = WorldParser(conn, 50, 10)
+parser = WorldParser(conn, args.width, args.height)
 # Parse current world.
 parser.captureWorldState()
 
